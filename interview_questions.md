@@ -291,4 +291,279 @@ This document outlines some of the most advanced SQL concepts used in enterprise
 ---
 
 > 💡 **Tip:** These topics are best learned through hands-on projects and performance tuning exercises. Consider building a mini data warehouse or analytics dashboard to apply these concepts.
+=========================================================================
+> Here’s your content converted into clean **Markdown format** suitable for a `README.md` file on GitHub. I’ve preserved your structure, added fenced code blocks for SQL, and formatted `<xaiArtifact>` blocks as collapsible details (so they don’t clutter the page but remain reusable).
+
+````markdown
+# Advanced SQL Interview Questions
+
+Below is a curated list of advanced SQL interview questions, including scenario-based questions, designed to test deep knowledge of SQL concepts such as complex joins, window functions, query optimization, and database design.  
+
+Each question includes a detailed answer with SQL code wrapped inside collapsible `<details>` blocks for readability. These questions are suitable for candidates preparing for senior data analyst, data engineer, or database developer roles.
+
+---
+
+## 1. Advanced: Optimizing a Slow Query with Multiple Joins
+**Scenario**: You are a data engineer at a retail company. The following SQL query, which retrieves sales data with product and customer details, takes 10 seconds to run on a database with 10M sales records, 1M products, and 500K customers.
+
+```sql
+SELECT 
+    s.SaleID, 
+    p.ProductName, 
+    c.CustomerName, 
+    s.SaleDate, 
+    s.Amount
+FROM Sales s
+JOIN Products p ON s.ProductID = p.ProductID
+JOIN Customers c ON s.CustomerID = c.CustomerID
+WHERE s.SaleDate >= '2024-01-01' 
+AND c.Region = 'North America';
+````
+
+**Question**: How would you optimize this query to run faster? Provide specific steps, including indexing strategies, query rewriting, and any database configuration changes.
+
+**Answer**:
+
+* Analyze execution plan
+* Add composite and selective indexes
+* Rewrite joins to push filters down
+* Partition large tables by `SaleDate`
+* Keep statistics updated
+* Consider materialized views
+
+<details>
+<summary>📄 Optimized Query (click to expand)</summary>
+
+```sql
+-- Create indexes
+CREATE INDEX idx_sales_date_customer_product 
+ON Sales (SaleDate, CustomerID, ProductID);
+
+CREATE INDEX idx_customers_region 
+ON Customers (Region, CustomerID);
+
+-- Optimized query
+SELECT 
+    s.SaleID, 
+    p.ProductName, 
+    c.CustomerName, 
+    s.SaleDate, 
+    s.Amount
+FROM Sales s
+INNER JOIN Customers c 
+    ON s.CustomerID = c.CustomerID
+    AND c.Region = 'North America'
+INNER JOIN Products p 
+    ON s.ProductID = p.ProductID
+WHERE s.SaleDate >= '2024-01-01';
+```
+
+</details>
+
+---
+
+## 2. Advanced: Window Functions for Running Totals
+
+**Scenario**: You work for a financial company analyzing daily transactions.
+
+**Question**: Write a SQL query to compute the running balance and flag negative balances.
+
+**Answer**:
+Use a `SUM()` window function with ordering by `TransactionDate` and `TransactionID`.
+
+<details>
+<summary>📄 Running Balance Query</summary>
+
+```sql
+SELECT 
+    AccountID,
+    TransactionDate,
+    Amount,
+    TransactionType,
+    SUM(
+        CASE 
+            WHEN TransactionType = 'Deposit' THEN Amount 
+            WHEN TransactionType = 'Withdrawal' THEN -Amount 
+            ELSE 0 
+        END
+    ) OVER (
+        PARTITION BY AccountID 
+        ORDER BY TransactionDate, TransactionID
+    ) AS RunningBalance,
+    CASE 
+        WHEN SUM(
+            CASE 
+                WHEN TransactionType = 'Deposit' THEN Amount 
+                WHEN TransactionType = 'Withdrawal' THEN -Amount 
+                ELSE 0 
+            END
+        ) OVER (
+            PARTITION BY AccountID 
+            ORDER BY TransactionDate, TransactionID
+        ) < 0 THEN 'Negative'
+        ELSE 'Positive'
+    END AS BalanceStatus
+FROM Transactions
+ORDER BY AccountID, TransactionDate, TransactionID;
+```
+
+</details>
+
+---
+
+## 3. Advanced: Recursive CTE for Organizational Hierarchy
+
+**Scenario**: You need to generate a report showing the full organizational hierarchy (CEO → Managers → Employees).
+
+**Answer**:
+Use a recursive CTE starting from top-level employees (`ManagerID IS NULL`).
+
+<details>
+<summary>📄 Hierarchy Query</summary>
+
+```sql
+WITH EmployeeHierarchy AS (
+    -- Anchor: Start with top-level employees
+    SELECT 
+        EmployeeID,
+        Name,
+        ManagerID,
+        CAST(NULL AS VARCHAR(50)) AS ManagerName,
+        1 AS HierarchyLevel
+    FROM Employees
+    WHERE ManagerID IS NULL
+
+    UNION ALL
+
+    -- Recursive: Join to find subordinates
+    SELECT 
+        e.EmployeeID,
+        e.Name,
+        e.ManagerID,
+        m.Name AS ManagerName,
+        eh.HierarchyLevel + 1 AS HierarchyLevel
+    FROM Employees e
+    INNER JOIN EmployeeHierarchy eh 
+        ON e.ManagerID = eh.EmployeeID
+    INNER JOIN Employees m 
+        ON e.ManagerID = m.EmployeeID
+)
+SELECT 
+    EmployeeID,
+    Name,
+    ManagerName,
+    HierarchyLevel,
+    REPEAT('  ', HierarchyLevel - 1) + Name AS IndentedName
+FROM EmployeeHierarchy
+ORDER BY HierarchyLevel, Name;
+```
+
+</details>
+
+---
+
+## 4. Advanced: Pivoting Data with Dynamic Columns
+
+**Scenario**: Generate a pivot table of monthly revenue per category (dynamic columns).
+
+**Answer**:
+Use dynamic SQL with `STRING_AGG` to construct the pivot.
+
+<details>
+<summary>📄 Dynamic Pivot Query</summary>
+
+```sql
+DECLARE @Columns NVARCHAR(MAX), @SQL NVARCHAR(MAX);
+
+-- Get distinct categories
+SET @Columns = (
+    SELECT STRING_AGG(QUOTENAME(Category), ', ')
+    FROM (SELECT DISTINCT Category FROM Sales) AS Categories
+);
+
+-- Build dynamic pivot
+SET @SQL = N'
+SELECT *
+FROM (
+    SELECT 
+        FORMAT(SaleDate, ''yyyy-MM'') AS SaleMonth,
+        Category,
+        Revenue
+    FROM Sales
+) AS SourceTable
+PIVOT (
+    SUM(Revenue)
+    FOR Category IN (' + @Columns + ')
+) AS PivotTable
+ORDER BY SaleMonth;
+';
+
+EXEC sp_executesql @SQL;
+```
+
+</details>
+
+---
+
+## 5. Advanced: Detecting and Resolving Deadlocks
+
+**Scenario**: Banking system deadlocks occur when updating `Accounts` and `Transactions`.
+
+**Answer**:
+
+* Enable deadlock logging
+* Use consistent locking order
+* Reduce transaction scope
+* Add retry logic
+
+<details>
+<summary>📄 Transaction Example</summary>
+
+```sql
+BEGIN TRY
+    BEGIN TRANSACTION;
+    
+    -- Lock Accounts table first
+    UPDATE Accounts
+    SET Balance = Balance - 100
+    WHERE AccountID = 1;
+    
+    UPDATE Accounts
+    SET Balance = Balance + 100
+    WHERE AccountID = 2;
+    
+    -- Insert transaction log
+    INSERT INTO Transactions (AccountID, Amount, TransactionType, TransactionDate)
+    VALUES (1, -100, 'Withdrawal', GETDATE()),
+           (2, 100, 'Deposit', GETDATE());
+    
+    COMMIT TRANSACTION;
+END TRY
+BEGIN CATCH
+    ROLLBACK TRANSACTION;
+    DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+    INSERT INTO ErrorLog (ErrorMessage, ErrorDate)
+    VALUES (@ErrorMessage, GETDATE());
+END CATCH;
+```
+
+</details>
+
+---
+
+## Notes
+
+* **Testing**: Always verify execution plans and simulate concurrency where needed.
+* **Database-specific**: Syntax may differ slightly across SQL Server, PostgreSQL, MySQL, and Oracle.
+* **Scalability**: Solutions are designed with indexing, partitioning, and concurrency in mind.
+
+---
+
+```
+
+👉 This version is GitHub-friendly, collapses long SQL blocks for readability, and keeps explanations clean.  
+
+Do you also want me to **add a Table of Contents at the top** (auto-links to each question), so recruiters/interviewers can jump directly to specific topics?
+```
+
 
