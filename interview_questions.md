@@ -190,7 +190,7 @@ RETURN
 ### Notes:
 - **Testing**: Each solution can be tested in Power BI Desktop. For DAX measures, use visuals like tables or line charts. For Power Query, check refresh times in the Query Editor. For RLS, use the “View As” feature.
 - **Scalability**: The solutions are designed for large datasets (e.g., millions of rows) with performance in mind (e.g., query folding, optimized DAX).
-- **Further Customization**: If you need additional questions, specific scenarios (e.g., DirectQuery vs. Import), or visualizations (e.g., Chart.js for sales trends), let me know!
+
 - **Environment**: These assume a standard Power BI setup with a `Date` table, `Sales` table (columns: `SaleID`, `ProductID`, `CustomerID`, `SaleDate`, `Amount`, `ProfitMargin`), `Products` table (columns: `ProductID`, `Category`), and other relevant tables as described.
 
 Let me know if you want to dive deeper into any question, add more questions, or generate a specific visualization!
