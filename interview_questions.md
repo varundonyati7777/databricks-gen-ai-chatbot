@@ -521,4 +521,91 @@ How do you manage workspace access and deployment pipelines?
 > 💡 **Tip:** These questions are ideal for assessing candidates' ability to work with complex datasets, build scalable dashboards, and communicate insights effectively.
 
 ```
+Here’s a **Markdown-formatted example** of a **Recursive CTE** using source and destination data, ideal for your `README.md` file on GitHub:
+
+```markdown
+# 🔁 Recursive CTE Example: Source to Destination Path Traversal
+
+This example demonstrates how to use a **Recursive Common Table Expression (CTE)** to find all possible paths from a source to a destination in a directed graph-like structure.
+
+---
+
+## 📋 Sample Data
+
+We have a table called `routes` representing connections between cities:
+
+| source | destination |
+|--------|-------------|
+| A      | B           |
+| B      | C           |
+| C      | D           |
+| A      | E           |
+| E      | F           |
+| F      | D           |
+
+---
+
+## 🎯 Goal
+
+Find all paths from city `A` to city `D`.
+
+---
+
+## 🧠 Recursive CTE Query
+
+```sql
+WITH RECURSIVE path_cte AS (
+    -- Anchor member: start from source 'A'
+    SELECT 
+        source,
+        destination,
+        source || ' -> ' || destination AS path
+    FROM 
+        routes
+    WHERE 
+        source = 'A'
+
+    UNION ALL
+
+    -- Recursive member: join with next leg of the route
+    SELECT 
+        r.source,
+        r.destination,
+        pc.path || ' -> ' || r.destination AS path
+    FROM 
+        routes r
+    INNER JOIN 
+        path_cte pc ON r.source = pc.destination
+)
+SELECT 
+    path
+FROM 
+    path_cte
+WHERE 
+    destination = 'D';
+```
+
+---
+
+## ✅ Output
+
+| path                     |
+|--------------------------|
+| A -> B -> C -> D         |
+| A -> E -> F -> D         |
+
+---
+
+## 🧩 Explanation
+
+- The **anchor query** starts with all routes from `A`.
+- The **recursive part** joins the current destination to the next source.
+- The recursion continues until all paths to `D` are found.
+- The final `SELECT` filters only those paths ending at `D`.
+
+---
+
+> 💡 Recursive CTEs are powerful for traversing hierarchical or graph-like data such as org charts, network paths, or dependency trees.
+
+```
 
